@@ -1,6 +1,8 @@
 var handler = require('../request-handler');
 var expect = require('chai').expect;
 var stubs = require('./Stubs');
+var http = require('http');
+
 
 // Conditional async testing, akin to Jasmine's waitsFor()
 // Will wait for test to be truthy before executing callback
@@ -114,6 +116,53 @@ describe('Node Server Request Listener Function', function() {
       function() {
         expect(res._responseCode).to.equal(404);
       });
+  });
+
+  it('Should collect and parse JSON.stringified objects', function() {
+    var req = new stubs.request('/classes/messages', 'post');
+    var res = new stubs.response();
+
+    handler.requestHandler(req, res);
+
+    expect(JSON.stringify.bind(this, req._data)).to.not.throw(req._data);
+    // expect(req._ended).to.equal(undefined);
+  });
+
+  it('Should store multiple post requests', function() {
+    var stubMsg = {
+      username: 'Jono',
+      message: 'Do my bidding!'
+    };
+    var req = new stubs.request('/classes/messages', 'POST', stubMsg);
+    var res = new stubs.response();
+    var req2 = new stubs.request('/classes/messages', 'POST', stubMsg);
+    var res2 = new stubs.response();
+
+    handler.requestHandler(req, res);
+
+    expect(res._responseCode).to.equal(201);
+
+      // Now if we request the log for that room the message we posted should be there:
+    req = new stubs.request('/classes/messages', 'GET');
+    res = new stubs.response();
+
+    handler.requestHandler(req, res);
+
+    expect(res._responseCode).to.equal(200);
+    var messages = JSON.parse(res._data).results;
+    expect(messages.length).to.be.above(0);
+    expect(messages[0].username).to.equal('Jono');
+    expect(messages[1].username).to.equal('Jono');
+    expect(messages[0].message).to.equal('Do my bidding!');
+    expect(messages[1].message).to.equal('Do my bidding!');
+    expect(res._ended).to.equal(true);
+  });
+
+  it('should not reponse to a delete request: reponseCode should equal null', function(done) {
+    var req = new stubs.request('/classes/messages', 'DELETE');
+    var res = new stubs.response();
+
+    expect(res._responseCode).to.equal(null);
   });
 
 });
